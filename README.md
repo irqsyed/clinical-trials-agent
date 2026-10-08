@@ -46,11 +46,10 @@ npm run build
 
 # 4. Start Server
 npm run start:prod
-# or: npm run start:dev
 ```
 
 ### 4. Access
-
+- **Please enter your OPENAI_API_KEY in .env file**
 - **Interactive Web Demo:** `http://localhost:3000/` (see [ui_user_guide.md](ui_user_guide.md) for full guide on presets, charts, & citations)
 - **Swagger UI:** `http://localhost:3000/api/docs`
 - **API Endpoint:** `POST http://localhost:3000/api/v1/query`
