@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClinicalTrials.gov Query-to-Visualization Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Chart.js for charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <!-- Vis.js Network for interactive network graphs -->
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #07090e;
+      --bg-card: rgba(15, 23, 42, 0.75);
+      --bg-card-hover: rgba(30, 41, 59, 0.85);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(99, 102, 241, 0.3);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --cyan: #06b6d4;
+      --purple: #a855f7;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 85% 25%, rgba(6, 182, 212, 0.10) 0%, transparent 40%),
+        radial-gradient(circle at 50% 80%, rgba(168, 85, 247, 0.08) 0%, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+
+    /* Container */
+    .app-shell {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 24px 28px 60px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #6366f1, #06b6d4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 8px 24px -4px rgba(99, 102, 241, 0.4);
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #ffffff, #cbd5e1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .header-links {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge-pill {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge-pill::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+
+    .btn-outline {
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 10px;
+      color: #cbd5e1;
+      text-decoration: none;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-outline:hover {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
+    /* Query Box Card */
+    .card-glass {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+      margin-bottom: 24px;
+      transition: border-color 0.2s;
+    }
+
+    .card-glass:hover {
+      border-color: var(--border-accent);
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--cyan);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Sample Query Pills */
+    .samples-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .sample-pill {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #cbd5e1;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sample-pill:hover {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: rgba(99, 102, 241, 0.4);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
+    .sample-pill.active {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(6, 182, 212, 0.25));
+      border-color: var(--cyan);
+      color: #ffffff;
+    }
+
+    /* Search Input Group */
+    .query-input-wrap {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .input-field {
+      flex: 1;
+      min-width: 280px;
+      background: rgba(10, 15, 29, 0.8);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      font-size: 15px;
+      color: #ffffff;
+      outline: none;
+      font-family: inherit;
+      transition: all 0.2s ease;
+    }
+
+    .input-field:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #06b6d4);
+      color: white;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 14px 28px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      box-shadow: 0 8px 20px -4px rgba(99, 102, 241, 0.5);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px -4px rgba(99, 102, 241, 0.6);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Filters Toggle & Drawer */
+    .filter-toggle {
+      font-size: 13px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: none;
+      margin-bottom: 12px;
+      font-family: inherit;
+    }
+
+    .filter-toggle:hover {
+      color: var(--text-main);
+    }
+
+    .filters-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--border-subtle);
+    }
+
+    .filter-input-group label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+
+    .filter-input-group input,
+    .filter-input-group select {
+      width: 100%;
+      background: rgba(10, 15, 29, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      font-size: 13px;
+      color: #ffffff;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .filter-input-group select option {
+      background: #0f172a;
+      color: #fff;
+    }
+
+    /* Pipeline Status Bar */
+    .metrics-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+      padding: 12px 20px;
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      margin-bottom: 24px;
+      font-size: 13px;
+    }
+
+    .metric-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-muted);
+    }
+
+    .metric-item strong {
+      color: var(--text-main);
+    }
+
+    .type-badge {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .type-bar_chart, .type-grouped_bar_chart { background: rgba(99, 102, 241, 0.18); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }
+    .type-time_series { background: rgba(6, 182, 212, 0.18); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); }
+    .type-network_graph { background: rgba(168, 85, 247, 0.18); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+    .type-scatter_plot { background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .type-histogram { background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+    /* Main Display Layout */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+
+    /* Tabs Header */
+    .tabs-header {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      padding: 8px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .tab-btn.active {
+      color: #ffffff;
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+    }
+
+    /* Tab Contents */
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    /* Chart Canvas Container */
+    .chart-container {
+      position: relative;
+      height: 480px;
+      width: 100%;
+      background: rgba(8, 12, 22, 0.5);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    #network-canvas {
+      height: 520px;
+      width: 100%;
+      background: #080c16;
+      border-radius: var(--radius-md);
+    }
+
+    /* Deep Citations List */
+    .citations-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .citations-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 16px;
+      max-height: 600px;
+      overflow-y: auto;
+      padding-right: 8px;
+    }
+
+    .citation-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .citation-card:hover {
+      border-color: rgba(99, 102, 241, 0.4);
+      background: rgba(22, 32, 57, 0.8);
+      transform: translateY(-2px);
+    }
+
+    .citation-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--cyan);
+      background: rgba(6, 182, 212, 0.1);
+      padding: 3px 8px;
+      border-radius: 6px;
+      text-decoration: none;
+      width: fit-content;
+      margin-bottom: 8px;
+    }
+
+    .citation-badge:hover {
+      text-decoration: underline;
+    }
+
+    .citation-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+
+    .citation-excerpt {
+      font-size: 13px;
+      color: #94a3b8;
+      font-style: italic;
+      line-height: 1.5;
+      background: rgba(0, 0, 0, 0.2);
+      border-left: 2px solid var(--primary);
+      padding: 8px 12px;
+      border-radius: 0 6px 6px 0;
+      margin-top: 6px;
+    }
+
+    /* JSON Spec Viewer */
+    .json-pre {
+      background: #080c16;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 18px;
+      color: #38bdf8;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      max-height: 540px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      font-size: 12px;
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-subtle);
+      color: #cbd5e1;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+    }
+
+    /* Reasoning Card */
+    .reasoning-box {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      border-left: 3px solid var(--purple);
+    }
+
+    .reasoning-box h4 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #e2e8f0;
+      margin-bottom: 8px;
+    }
+
+    .reasoning-box p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* Loader */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <div class="brand-logo">🧬</div>
+        <div>
+          <h1 class="brand-title">ClinicalTrials.gov Query-to-Visualization</h1>
+          <p class="brand-subtitle">AI-Driven Semantic Search · Real CT.gov v2 API · Deep Citations</p>
+        </div>
+      </div>
+      <div class="header-links">
+        <div class="badge-pill">Live API &amp; Agent Online</div>
+        <a href="/api/docs" target="_blank" class="btn-outline">
+          📚 Swagger API Docs
+        </a>
+      </div>
+    </header>
+
+    <!-- Query Input & Preset Section -->
+    <div class="card-glass">
+      <div class="section-title">⚡ Quick Example Runs (1-Click Test)</div>
+      <div class="samples-grid">
+        <button class="sample-pill active" onclick="loadSample(1)">
+          💊 Pembrolizumab Phase Distribution (Bar Chart)
+        </button>
+        <button class="sample-pill" onclick="loadSample(2)">
+          📈 Alzheimer's Disease Over Time (Time Series)
+        </button>
+        <button class="sample-pill" onclick="loadSample(3)">
+          🕸️ CAR-T Sponsor &amp; Condition Network (Network Graph)
+        </button>
+        <button class="sample-pill" onclick="loadSample(4)">
+          📊 Breast Cancer Phase vs Recruitment (Grouped Bar)
+        </button>
+        <button class="sample-pill" onclick="loadSample(5)">
+          🔬 Melanoma Immunotherapy Enrollment (Scatter Plot)
+        </button>
+      </div>
+
+      <form id="queryForm" onsubmit="handleQuerySubmit(event)">
+        <div class="query-input-wrap">
+          <input 
+            type="text" 
+            id="queryInput" 
+            class="input-field" 
+            placeholder="Ask anything about clinical trials (e.g. 'Show me trials by phase for Pembrolizumab')..."
+            value="Show me the distribution of clinical trials by phase for Pembrolizumab"
+            required
+            minlength="5"
+          />
+          <button type="submit" id="submitBtn" class="btn-primary">
+            <span class="spinner" id="spinner"></span>
+            <span id="btnText">✨ Run Agent</span>
+          </button>
+        </div>
+
+        <button type="button" class="filter-toggle" onclick="toggleFilters()">
+          ⚙️ <span id="toggleText">Show Optional Filters (Drug, Phase, Condition...)</span>
+        </button>
+
+        <div id="filtersDrawer" class="filters-row" style="display: none;">
+          <div class="filter-input-group">
+            <label>Drug Name</label>
+            <input type="text" id="filterDrug" placeholder="e.g. Pembrolizumab" value="Pembrolizumab" />
+          </div>
+          <div class="filter-input-group">
+            <label>Condition</label>
+            <input type="text" id="filterCondition" placeholder="e.g. Lung Cancer" />
+          </div>
+          <div class="filter-input-group">
+            <label>Phase</label>
+            <select id="filterPhase">
+              <option value="">Any Phase</option>
+              <option value="PHASE1">Phase 1</option>
+              <option value="PHASE2">Phase 2</option>
+              <option value="PHASE3">Phase 3</option>
+              <option value="PHASE4">Phase 4</option>
+              <option value="EARLY_PHASE1">Early Phase 1</option>
+            </select>
+          </div>
+          <div class="filter-input-group">
+            <label>Sponsor</label>
+            <input type="text" id="filterSponsor" placeholder="e.g. Merck, Pfizer" />
+          </div>
+          <div class="filter-input-group">
+            <label>Start Year</label>
+            <input type="number" id="filterStartYear" placeholder="2010" min="1990" max="2030" />
+          </div>
+          <div class="filter-input-group">
+            <label>End Year</label>
+            <input type="number" id="filterEndYear" placeholder="2024" min="1990" max="2030" />
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Metrics Bar -->
+    <div id="metricsBar" class="metrics-bar" style="display: none;">
+      <div class="metric-item">
+        <span>Visualization:</span>
+        <span id="metricTypeBadge" class="type-badge type-bar_chart">bar_chart</span>
+      </div>
+      <div class="metric-item">
+        <span>Trials Analyzed:</span>
+        <strong id="metricTrialsCount">200</strong>
+      </div>
+      <div class="metric-item">
+        <span>Time:</span>
+        <strong id="metricTime">-- ms</strong>
+      </div>
+      <div class="metric-item">
+        <span>Source:</span>
+        <strong>clinicaltrials.gov API v2</strong>
+      </div>
+      <div class="metric-item" style="margin-left: auto;">
+        <span>LLM:</span>
+        <span style="color: var(--cyan); font-weight: 600;">GPT-4o-mini (Structured Tools)</span>
+      </div>
+    </div>
+
+    <!-- Result Card -->
+    <div id="resultCard" class="card-glass" style="display: none;">
+      <div class="tabs-header">
+        <button class="tab-btn active" onclick="switchTab('chartTab')">📊 Interactive Visualization</button>
+        <button class="tab-btn" onclick="switchTab('citationsTab')">🔍 Deep Citations (<span id="citCount">0</span>)</button>
+        <button class="tab-btn" onclick="switchTab('reasoningTab')">🧠 Query Reasoning</button>
+        <button class="tab-btn" onclick="switchTab('jsonTab')">📄 Response JSON Spec</button>
+      </div>
+
+      <!-- Tab 1: Visualization -->
+      <div id="chartTab" class="tab-panel active">
+        <div style="margin-bottom: 16px;">
+          <h2 id="vizTitle" style="font-size: 18px; font-weight: 700; color: #fff;">Title</h2>
+          <p id="vizDesc" style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Description</p>
+        </div>
+
+        <div id="chartWrap" class="chart-container">
+          <canvas id="chartCanvas"></canvas>
+        </div>
+        <div id="networkWrap" style="display: none;">
+          <div id="network-canvas"></div>
+          <div style="font-size: 12px; color: var(--text-dim); margin-top: 8px; text-align: center;">
+            💡 Scroll to zoom · Click &amp; drag nodes to explore sponsor &amp; condition relationships
+          </div>
+        </div>
+        <div id="tableWrap" style="display: none; overflow-x: auto;">
+          <table id="dataTable" style="width: 100%; border-collapse: collapse; font-size: 13px;"></table>
+        </div>
+      </div>
+
+      <!-- Tab 2: Deep Citations -->
+      <div id="citationsTab" class="tab-panel">
+        <div class="citations-header">
+          <div>
+            <h3 style="font-size: 16px; font-weight: 700;">Deep Source Traceability</h3>
+            <p style="font-size: 13px; color: var(--text-muted);">
+              Every aggregated visual data point is linked to the primary ClinicalTrials.gov record and exact text excerpt.
+            </p>
+          </div>
+        </div>
+        <div id="citationsList" class="citations-grid"></div>
+      </div>
+
+      <!-- Tab 3: AI Reasoning -->
+      <div id="reasoningTab" class="tab-panel">
+        <div class="reasoning-box">
+          <h4>Agent Query Interpretation</h4>
+          <p id="agentInterpretation" style="margin-bottom: 16px;">--</p>
+          <h4 style="margin-top: 16px;">Applied Filters</h4>
+          <pre id="appliedFiltersJson" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--cyan); background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px;"></pre>
+        </div>
+      </div>
+
+      <!-- Tab 4: JSON Spec -->
+      <div id="jsonTab" class="tab-panel" style="position: relative;">
+        <button class="copy-btn" onclick="copyJson()">📋 Copy JSON</button>
+        <pre id="jsonViewer" class="json-pre"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentChart = null;
+    let currentNetwork = null;
+    let latestResponse = null;
+
+    const SAMPLES = {
+      1: {
+        query: "Show me the distribution of clinical trials by phase for Pembrolizumab",
+        drug_name: "Pembrolizumab",
+        condition: "",
+        trial_phase: "",
+        sponsor: "",
+        start_year: "",
+        end_year: ""
+      },
+      2: {
+        query: "How has the number of clinical trials for Alzheimer's disease changed over time?",
+        drug_name: "",
+        condition: "Alzheimer Disease",
+        trial_phase: "",
+        sponsor: "",
+        start_year: 2010,
+        end_year: 2024
+      },
+      3: {
+        query: "Show the network graph of sponsors and conditions researching CAR-T therapy",
+        drug_name: "CAR-T",
+        condition: "",
+        trial_phase: "",
+        sponsor: "",
+        start_year: "",
+        end_year: ""
+      },
+      4: {
+        query: "Compare recruitment status across trial phases for Breast Cancer studies",
+        drug_name: "",
+        condition: "Breast Cancer",
+        trial_phase: "",
+        sponsor: "",
+        start_year: "",
+        end_year: ""
+      },
+      5: {
+        query: "Show the relationship between study duration and participant enrollment for Melanoma immunotherapy trials",
+        drug_name: "",
+        condition: "Melanoma",
+        trial_phase: "",
+        sponsor: "",
+        start_year: "",
+        end_year: ""
+      }
+    };
+
+    function loadSample(num) {
+      document.querySelectorAll('.sample-pill').forEach((btn, idx) => {
+        btn.classList.toggle('active', idx === num - 1);
+      });
+      const s = SAMPLES[num];
+      document.getElementById('queryInput').value = s.query;
+      document.getElementById('filterDrug').value = s.drug_name || '';
+      document.getElementById('filterCondition').value = s.condition || '';
+      document.getElementById('filterPhase').value = s.trial_phase || '';
+      document.getElementById('filterSponsor').value = s.sponsor || '';
+      document.getElementById('filterStartYear').value = s.start_year || '';
+      document.getElementById('filterEndYear').value = s.end_year || '';
+
+      document.getElementById('queryForm').dispatchEvent(new Event('submit'));
+    }
+
+    function toggleFilters() {
+      const drawer = document.getElementById('filtersDrawer');
+      const text = document.getElementById('toggleText');
+      if (drawer.style.display === 'none') {
+        drawer.style.display = 'grid';
+        text.innerText = 'Hide Optional Filters';
+      } else {
+        drawer.style.display = 'none';
+        text.innerText = 'Show Optional Filters (Drug, Phase, Condition...)';
+      }
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+
+      event.target.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+
+      if (tabId === 'chartTab' && currentChart) {
+        currentChart.resize();
+      }
+    }
+
+    function copyJson() {
+      if (!latestResponse) return;
+      navigator.clipboard.writeText(JSON.stringify(latestResponse, null, 2));
+      alert('JSON specification copied to clipboard!');
+    }
+
+    async function handleQuerySubmit(event) {
+      event.preventDefault();
+      const submitBtn = document.getElementById('submitBtn');
+      const spinner = document.getElementById('spinner');
+      const btnText = document.getElementById('btnText');
+
+      submitBtn.disabled = true;
+      spinner.style.display = 'inline-block';
+      btnText.innerText = 'Analyzing Trials...';
+
+      const payload = {
+        query: document.getElementById('queryInput').value.trim()
+      };
+
+      const drug = document.getElementById('filterDrug').value.trim();
+      const condition = document.getElementById('filterCondition').value.trim();
+      const phase = document.getElementById('filterPhase').value.trim();
+      const sponsor = document.getElementById('filterSponsor').value.trim();
+      const startYear = document.getElementById('filterStartYear').value.trim();
+      const endYear = document.getElementById('filterEndYear').value.trim();
+
+      if (drug) payload.drug_name = drug;
+      if (condition) payload.condition = condition;
+      if (phase) payload.trial_phase = phase;
+      if (sponsor) payload.sponsor = sponsor;
+      if (startYear) payload.start_year = parseInt(startYear, 10);
+      if (endYear) payload.end_year = parseInt(endYear, 10);
+
+      try {
+        const response = await fetch('/api/v1/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          alert('API Error: ' + (err.message || 'Validation failed'));
+          return;
+        }
+
+        const data = await response.json();
+        latestResponse = data;
+        renderResponse(data);
+      } catch (err) {
+        console.error(err);
+        alert('Failed to connect to API endpoint: ' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        spinner.style.display = 'none';
+        btnText.innerText = '✨ Run Agent';
+      }
+    }
+
+    function renderResponse(res) {
+      const { visualization, meta } = res;
+      document.getElementById('metricsBar').style.display = 'flex';
+      document.getElementById('resultCard').style.display = 'block';
+
+      // Update metrics
+      const badge = document.getElementById('metricTypeBadge');
+      badge.className = `type-badge type-${visualization.type}`;
+      badge.innerText = visualization.type.replace('_', ' ');
+
+      document.getElementById('metricTrialsCount').innerText = meta.total_trials_fetched;
+      document.getElementById('metricTime').innerText = `${meta.processing_time_ms} ms`;
+      document.getElementById('vizTitle').innerText = visualization.title;
+      document.getElementById('vizDesc').innerText = visualization.description || '';
+
+      // JSON & Reasoning
+      document.getElementById('jsonViewer').innerText = JSON.stringify(res, null, 2);
+      document.getElementById('agentInterpretation').innerText = meta.query_interpretation;
+      document.getElementById('appliedFiltersJson').innerText = JSON.stringify(meta.filters_applied, null, 2);
+
+      // Render Citations
+      renderCitations(visualization.data);
+
+      // Render Chart based on type
+      const chartWrap = document.getElementById('chartWrap');
+      const networkWrap = document.getElementById('networkWrap');
+      const tableWrap = document.getElementById('tableWrap');
+
+      chartWrap.style.display = 'none';
+      networkWrap.style.display = 'none';
+      tableWrap.style.display = 'none';
+
+      if (currentChart) {
+        currentChart.destroy();
+        currentChart = null;
+      }
+      if (currentNetwork) {
+        currentNetwork.destroy();
+        currentNetwork = null;
+      }
+
+      if (visualization.type === 'network_graph') {
+        networkWrap.style.display = 'block';
+        renderNetworkGraph(visualization.data);
+      } else {
+        chartWrap.style.display = 'block';
+        renderChartJs(visualization);
+      }
+    }
+
+    function renderCitations(data) {
+      const list = document.getElementById('citationsList');
+      list.innerHTML = '';
+
+      const citations = [];
+      data.forEach(item => {
+        if (item.citations && Array.isArray(item.citations)) {
+          item.citations.forEach(c => {
+            if (!citations.find(existing => existing.nct_id === c.nct_id)) {
+              citations.push(c);
+            }
+          });
+        }
+      });
+
+      document.getElementById('citCount').innerText = citations.length;
+
+      if (citations.length === 0) {
+        list.innerHTML = '<div style="color: var(--text-dim); padding: 20px;">No citation excerpts available for this visual spec.</div>';
+        return;
+      }
+
+      citations.slice(0, 30).forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'citation-card';
+        card.innerHTML = `
+          <div>
+            <a href="${c.url || `https://clinicaltrials.gov/study/${c.nct_id}`}" target="_blank" class="citation-badge">
+              🔗 ${c.nct_id}
+            </a>
+            <div class="citation-title">${escapeHtml(c.study_title || 'Clinical Study')}</div>
+          </div>
+          <div class="citation-excerpt">"${escapeHtml(c.excerpt || 'Excerpt from clinical trial entry...')}"</div>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    function renderNetworkGraph(data) {
+      const nodesData = [];
+      const edgesData = [];
+
+      data.forEach(item => {
+        if (item.element_type === 'node') {
+          const isCondition = item.type === 'condition' || item.id.startsWith('condition:');
+          const cleanLabel = item.id.replace('condition:', '').replace('intervention:', '');
+          nodesData.push({
+            id: item.id,
+            label: cleanLabel.length > 25 ? cleanLabel.substring(0, 22) + '...' : cleanLabel,
+            title: item.id + ` (${item.count} trials)`,
+            color: isCondition ? '#06b6d4' : '#8b5cf6',
+            font: { color: '#ffffff', size: 12 },
+            shape: isCondition ? 'diamond' : 'dot',
+            size: Math.min(35, Math.max(14, (item.count || 1) * 2))
+          });
+        } else if (item.element_type === 'edge') {
+          edgesData.push({
+            from: item.source,
+            to: item.target,
+            value: item.weight || 1,
+            color: { color: 'rgba(255, 255, 255, 0.25)', highlight: '#38bdf8' }
+          });
+        }
+      });
+
+      const container = document.getElementById('network-canvas');
+      const networkData = {
+        nodes: new vis.DataSet(nodesData),
+        edges: new vis.DataSet(edgesData)
+      };
+
+      const options = {
+        physics: {
+          stabilization: { iterations: 150 },
+          barnesHut: { gravitationalConstant: -3000, springLength: 95 }
+        },
+        interaction: { hover: true, zoomView: true }
+      };
+
+      currentNetwork = new vis.Network(container, networkData, options);
+    }
+
+    function renderChartJs(viz) {
+      const ctx = document.getElementById('chartCanvas').getContext('2d');
+      const { type, encoding, data } = viz;
+
+      const palette = [
+        '#6366f1', '#06b6d4', '#10b981', '#f59e0b', '#ec4899', 
+        '#8b5cf6', '#3b82f6', '#14b8a6', '#f97316', '#a855f7'
+      ];
+
+      let chartConfig = {};
+
+      if (type === 'bar_chart' || type === 'histogram') {
+        const xField = encoding.x?.field || Object.keys(data[0] || {})[0];
+        const yField = encoding.y?.field || Object.keys(data[0] || {})[1];
+
+        chartConfig = {
+          type: 'bar',
+          data: {
+            labels: data.map(d => String(d[xField])),
+            datasets: [{
+              label: encoding.y?.label || yField,
+              data: data.map(d => d[yField]),
+              backgroundColor: data.map((_, i) => palette[i % palette.length]),
+              borderRadius: 6,
+              borderWidth: 0
+            }]
+          },
+          options: defaultChartOptions()
+        };
+      } else if (type === 'time_series') {
+        const xField = encoding.x?.field || 'year';
+        const yField = encoding.y?.field || 'trial_count';
+
+        chartConfig = {
+          type: 'line',
+          data: {
+            labels: data.map(d => String(d[xField])),
+            datasets: [{
+              label: encoding.y?.label || 'Trial Count',
+              data: data.map(d => d[yField]),
+              borderColor: '#06b6d4',
+              backgroundColor: 'rgba(6, 182, 212, 0.12)',
+              fill: true,
+              tension: 0.35,
+              pointBackgroundColor: '#06b6d4',
+              pointRadius: 4,
+              pointHoverRadius: 6
+            }]
+          },
+          options: defaultChartOptions()
+        };
+      } else if (type === 'grouped_bar_chart') {
+        const xField = encoding.x?.field || 'year';
+        const yField = encoding.y?.field || 'trial_count';
+        const seriesField = encoding.series?.field || encoding.color?.field || 'phase';
+
+        const seriesValues = [...new Set(data.map(d => d[seriesField]))];
+        const xLabels = [...new Set(data.map(d => String(d[xField])))].sort();
+
+        const datasets = seriesValues.map((seriesVal, i) => {
+          return {
+            label: seriesVal,
+            data: xLabels.map(xVal => {
+              const match = data.find(d => String(d[xField]) === xVal && d[seriesField] === seriesVal);
+              return match ? match[yField] : 0;
+            }),
+            backgroundColor: palette[i % palette.length],
+            borderRadius: 4
+          };
+        });
+
+        chartConfig = {
+          type: 'bar',
+          data: { labels: xLabels, datasets },
+          options: defaultChartOptions()
+        };
+      } else if (type === 'scatter_plot') {
+        const xField = encoding.x?.field || 'year';
+        const yField = encoding.y?.field || 'enrollment';
+
+        chartConfig = {
+          type: 'scatter',
+          data: {
+            datasets: [{
+              label: 'Studies',
+              data: data.map(d => ({ x: d[xField], y: d[yField] })),
+              backgroundColor: '#a855f7',
+              pointRadius: 5,
+              pointHoverRadius: 8
+            }]
+          },
+          options: defaultChartOptions()
+        };
+      }
+
+      currentChart = new Chart(ctx, chartConfig);
+    }
+
+    function defaultChartOptions() {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            labels: { color: '#cbd5e1', font: { family: 'Plus Jakarta Sans', size: 12 } }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+            titleColor: '#fff',
+            bodyColor: '#cbd5e1',
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            borderWidth: 1,
+            padding: 10
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans' } }
+          },
+          y: {
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans' } }
+          }
+        }
+      };
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    // Auto load first sample on startup
+    window.addEventListener('DOMContentLoaded', () => {
+      // Trigger first sample automatically
+      loadSample(1);
+    });
+  </script>
+</body>
+</html>
