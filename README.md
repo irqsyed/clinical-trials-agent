@@ -26,7 +26,7 @@ cp .env.example .env
 The `.env` is pre-configured with the provided API key. You can change the model:
 
 ```env
-OPENAI_API_KEY=sk-...
+OPENAI_API=sk-...
 OPENAI_MODEL=gpt-4o-mini   # or gpt-4o-2024-08-06, gpt-4.1, gpt-4.1-mini, etc.
 PORT=3000
 CT_PAGE_SIZE=200
@@ -49,7 +49,7 @@ npm run start:prod
 ```
 
 ### 4. Access
-- **Please enter your OPENAI_API_KEY in .env file**
+- **Please enter your OPENAI_API key in .env file**
 - **Interactive Web Demo:** `http://localhost:3000/` (see [ui_user_guide.md](ui_user_guide.md) for full guide on presets, charts, & citations)
 - **Swagger UI:** `http://localhost:3000/api/docs`
 - **API Endpoint:** `POST http://localhost:3000/api/v1/query`

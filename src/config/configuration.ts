@@ -1,7 +1,7 @@
 export const configuration = () => ({
   port: parseInt(process.env.PORT ?? '3000', 10),
   openai: {
-    apiKey: process.env.OPENAI_API_KEY ?? '',
+    apiKey: process.env.OPENAI_API ?? '',
     model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
   },
   clinicalTrials: {
